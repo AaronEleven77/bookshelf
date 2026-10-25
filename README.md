@@ -42,9 +42,25 @@ All paths are relative, so the app works from that sub-path as is.
 
 The app then opens full screen with its own icon and works without a connection.
 
+## Use it as a Claude artifact
+
+The same `index.html` also runs as a Claude artifact. It detects the artifact runtime and switches storage:
+
+- **Books** go to the artifact's database, in a private area for your account, so the shelf syncs between every device where you open the artifact while signed in to Claude.
+- **Cover photos** are stored as artifact assets. Only people who can edit the artifact can upload covers.
+- **Backups** go through Claude's save-file prompt, because artifacts can't start downloads themselves.
+
+There's no offline mode in the artifact, because service workers don't run there.
+
+The artifact and the GitHub Pages copy keep **separate** data. To move books between them, use **Back up to a file** in one and **Restore from a file** in the other.
+
+### Keeping the artifact in sync with this repo
+
+`index.html` in this repo is the source for both versions. After changing it, republish the artifact from the same file (ask Claude Code to "republish the Bookshelf artifact from index.html"). Your books stay in place, because the artifact's database survives republishes.
+
 ## Your data lives in the browser
 
-Everything is stored **only on this device, inside this browser** (IndexedDB). There is no server and no account. That means:
+On GitHub Pages or a local server, everything is stored **only on this device, inside this browser** (IndexedDB). There is no server and no account. That means:
 
 - Data doesn't sync between your phone and your laptop, or even between two browsers on the same device. On iPhone, the home-screen app and Safari keep **separate** storage.
 - Clearing site data or uninstalling the browser deletes your books.

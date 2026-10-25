@@ -56,7 +56,7 @@
     --safe-l: env(safe-area-inset-left, 0px);
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #121614;
       --card: #1B211E;
       --ink: #E3E8E2;
@@ -79,7 +79,34 @@
       --ph-sat: 28%;
       --ph-light: 30%;
       --ph-ink: #EDE7D6;
+      color-scheme: dark;
     }
+  }
+  /* Same dark values for an explicit theme choice (Claude artifact viewer). */
+  :root[data-theme="dark"] {
+    --bg: #121614;
+    --card: #1B211E;
+    --ink: #E3E8E2;
+    --muted: #97A49C;
+    --accent: #7DB3A0;
+    --on-accent: #0F1A16;
+    --accent-soft: rgba(125, 179, 160, 0.14);
+    --star: #E8B94A;
+    --star-empty: rgba(227, 232, 226, 0.2);
+    --line: rgba(227, 232, 226, 0.12);
+    --field: #151A17;
+    --danger: #E07A62;
+    --on-danger: #1A0F0B;
+    --track: rgba(227, 232, 226, 0.12);
+    --banner: #3A2F16;
+    --banner-ink: #F2DDA6;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+    --ph-sat: 28%;
+    --ph-light: 30%;
+    --ph-ink: #EDE7D6;
+    color-scheme: dark;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -268,6 +295,7 @@
       rgba(255, 255, 255, 0) 8%,
       rgba(0, 0, 0, 0) 100%);
   }
+  .cover.missing { background: hsl(var(--h) var(--ph-sat) var(--ph-light)); }
   .cover.ph {
     background: hsl(var(--h) var(--ph-sat) var(--ph-light));
     color: var(--ph-ink);
@@ -622,7 +650,7 @@
     <button class="btn" id="restoreBtn" type="button">Restore from a file</button>
     <input id="restoreInput" type="file" accept="application/json,.json" hidden>
   </div>
-  <p>Your books live in this browser on this device only. Back up before switching phones or clearing browser data.</p>
+  <p id="storageNote">Your books live in this browser on this device only. Back up before switching phones or clearing browser data.</p>
 </footer>
 
 <button class="fab" id="fab" type="button">
@@ -642,7 +670,7 @@
     <div class="sheet-body">
       <div class="cover-row">
         <span id="coverPreview"></span>
-        <div class="cover-actions">
+        <div class="cover-actions" id="coverControls">
           <span class="btn file-btn">
             <span id="coverBtnLabel">Add cover photo</span>
             <input id="coverInput" type="file" accept="image/*" aria-label="Cover photo">
@@ -763,9 +791,29 @@
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
 
-  // ---------- Storage (IndexedDB with in-memory fallback) ----------
+  // ---------- Storage ----------
+  // One interface, three backends:
+  //   cloud  – opened as a Claude artifact: books live in the artifact's db
+  //            (private to each signed-in viewer) and covers are artifact
+  //            assets, so the shelf syncs across devices.
+  //   local  – IndexedDB in this browser (GitHub Pages, local server).
+  //   memory – IndexedDB unavailable; gone when the page closes.
+  // book.cover holds a cover key: the book id locally, an asset id in cloud.
   const mem = { books: new Map(), covers: new Map() };
-  let db = null;
+  let idb = null;
+  let cloud = null; // { books: CollectionReference, assets, downloads }
+
+  async function connectCloud() {
+    if (!window.claude || typeof window.claude.use !== 'function') return null;
+    try {
+      const [db, user, assets, downloads] = await Promise.all(
+        ['db', 'user', 'assets', 'downloads'].map((n) => window.claude.use(n).catch(() => null)));
+      if (!db || !user) return null;
+      const uid = await user.id();
+      if (!uid) return null;
+      return { books: db.doc(`data/users/${uid}/shelf`).collection('books'), assets, downloads };
+    } catch { return null; }
+  }
 
   function openDB() {
     return new Promise((resolve) => {
@@ -785,27 +833,57 @@
     });
   }
   function reqP(r) { return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-  function write(store, fn) {
+  function write(name, fn) {
     return new Promise((res, rej) => {
-      const t = db.transaction(store, 'readwrite');
-      fn(t.objectStore(store));
+      const t = idb.transaction(name, 'readwrite');
+      fn(t.objectStore(name));
       t.oncomplete = () => res();
       t.onerror = () => rej(t.error);
       t.onabort = () => rej(t.error || new Error('Transaction aborted'));
     });
   }
   const store = {
-    allBooks: () => db ? reqP(db.transaction('books').objectStore('books').getAll()) : Promise.resolve([...mem.books.values()]),
-    putBook: (b) => db ? write('books', (s) => s.put(b)) : (mem.books.set(b.id, b), Promise.resolve()),
-    delBook: (id) => db ? write('books', (s) => s.delete(id)) : (mem.books.delete(id), Promise.resolve()),
-    getCover: (id) => db ? reqP(db.transaction('covers').objectStore('covers').get(id)) : Promise.resolve(mem.covers.get(id)),
-    putCover: (id, blob) => db ? write('covers', (s) => s.put(blob, id)) : (mem.covers.set(id, blob), Promise.resolve()),
-    delCover: (id) => db ? write('covers', (s) => s.delete(id)) : (mem.covers.delete(id), Promise.resolve()),
+    async allBooks() {
+      if (cloud) return (await cloud.books.get()).docs.map((d) => ({ ...d.data(), id: d.id }));
+      return idb ? reqP(idb.transaction('books').objectStore('books').getAll()) : [...mem.books.values()];
+    },
+    async putBook(b) {
+      if (cloud) return cloud.books.doc(b.id).set({ ...b });
+      if (idb) return write('books', (s) => s.put(b));
+      mem.books.set(b.id, b);
+    },
+    async delBook(id) {
+      if (cloud) return cloud.books.doc(id).delete();
+      if (idb) return write('books', (s) => s.delete(id));
+      mem.books.delete(id);
+    },
+    // Resolves the cover key to keep in book.cover.
+    async putCover(bookId, blob) {
+      if (cloud) return (await cloud.assets.upload(blob, { type: blob.type || 'image/jpeg' })).id;
+      if (idb) await write('covers', (s) => s.put(blob, bookId)); else mem.covers.set(bookId, blob);
+      return bookId;
+    },
+    async getCover(key) {
+      if (cloud) {
+        const res = await fetch(coverSrc(key));
+        if (!res.ok) throw new Error('Cover missing');
+        return res.blob();
+      }
+      return idb ? reqP(idb.transaction('covers').objectStore('covers').get(key)) : mem.covers.get(key);
+    },
+    async delCover(key) {
+      if (!key) return;
+      if (cloud) { if (cloud.assets) await cloud.assets.delete(key).catch(() => {}); return; }
+      if (idb) return write('covers', (s) => s.delete(key));
+      mem.covers.delete(key);
+    },
   };
+  const coverSrc = (assetId) => '/_blob/' + assetId;
+  const canAddCovers = () => !cloud || !!cloud.assets;
 
   let persistAsked = false;
   function askPersist() {
-    if (persistAsked || !db || !navigator.storage || !navigator.storage.persist) return;
+    if (persistAsked || !idb || !navigator.storage || !navigator.storage.persist) return;
     persistAsked = true;
     navigator.storage.persisted().then((p) => p || navigator.storage.persist()).catch(() => {});
   }
@@ -815,17 +893,21 @@
   const coverURLs = new Map();
   let tab = SHELVES.some((s) => s.id === lsGet(TAB_KEY)) ? lsGet(TAB_KEY) : 'all';
   let query = '';
+  let ready = false;
 
-  function setCoverURL(id, blob) {
-    if (coverURLs.has(id)) URL.revokeObjectURL(coverURLs.get(id));
-    if (blob) coverURLs.set(id, URL.createObjectURL(blob)); else coverURLs.delete(id);
+  // src is a Blob (local) or a URL string (cloud asset); null clears it.
+  function setCoverURL(id, src) {
+    const old = coverURLs.get(id);
+    if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+    if (!src) coverURLs.delete(id);
+    else coverURLs.set(id, typeof src === 'string' ? src : URL.createObjectURL(src));
   }
 
   function normalize(b) {
     const status = STATUSES.includes(b.status) ? b.status : 'toread';
     const rating = toInt(b.rating);
     const now = new Date().toISOString();
-    const id = String(b.id || newId());
+    const id = /^[A-Za-z0-9_.~:@+-]{1,200}$/.test(String(b.id || '')) && !/^\.\.?$/.test(b.id) ? String(b.id) : newId();
     const date = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
     return {
       id,
@@ -833,7 +915,7 @@
       author: String(b.author || '').trim(),
       status,
       rating: rating && rating <= 5 ? rating : null,
-      cover: b.cover ? id : null,
+      cover: b.cover ? String(b.cover) : null,
       pages: toInt(b.pages),
       current: toInt(b.current),
       started: date(b.started),
@@ -845,14 +927,19 @@
     };
   }
 
-  async function loadAll() {
-    books = (await store.allBooks()).map(normalize);
-    for (const url of coverURLs.values()) URL.revokeObjectURL(url);
-    coverURLs.clear();
+  async function setBooks(raw) {
+    books = raw.map(normalize);
+    for (const id of [...coverURLs.keys()]) setCoverURL(id, null);
+    if (cloud) {
+      for (const b of books) if (b.cover) setCoverURL(b.id, coverSrc(b.cover));
+      return;
+    }
     await Promise.all(books.filter((b) => b.cover).map(async (b) => {
-      try { const blob = await store.getCover(b.id); if (blob) setCoverURL(b.id, blob); } catch { /* skip */ }
+      try { const blob = await store.getCover(b.cover); if (blob) setCoverURL(b.id, blob); } catch { /* skip */ }
     }));
   }
+  // Cloud mode keeps `books` current through a live subscription instead.
+  async function loadAll() { if (!cloud) await setBooks(await store.allBooks()); }
 
   // ---------- Rendering ----------
   const matches = (b, q) => !q || [b.title, b.author, b.notes, b.recommendedBy].some((f) => f && f.toLowerCase().includes(q));
@@ -864,7 +951,7 @@
 
   function coverHTML(b) {
     const url = coverURLs.get(b.id);
-    if (url) return `<span class="cover"><img src="${url}" alt="" loading="lazy" decoding="async"></span>`;
+    if (url) return `<span class="cover" style="--h:${hash(b.title || '') % 360}"><img src="${url}" alt="" loading="lazy" decoding="async"></span>`;
     return `<span class="cover ph" style="--h:${hash(b.title || '') % 360}" aria-hidden="true">
       <span class="ph-title">${esc(b.title || 'Untitled')}</span><span class="ph-author">${esc(b.author)}</span></span>`;
   }
@@ -933,7 +1020,7 @@
 
     // empty state
     const empty = $('empty');
-    if (list.length) { empty.hidden = true; return; }
+    if (list.length || !ready) { empty.hidden = true; return; }
     empty.hidden = false;
     const shelf = SHELVES.find((s) => s.id === tab);
     if (q) {
@@ -1057,6 +1144,7 @@
     if (!book && formStatus === 'finished') f.finished.value = today();
     setRating(book?.rating || 0);
     $('deleteBtn').hidden = !book;
+    $('coverControls').hidden = !canAddCovers();
     showConfirm(false);
     renderPreview();
     sheet.showModal();
@@ -1073,6 +1161,14 @@
   function showConfirm(on) {
     $('footMain').hidden = on;
     $('footConfirm').hidden = !on;
+  }
+
+  function saveError(e) {
+    const code = e && e.code;
+    if (code === 'quota_exceeded' || code === 'quota_or_state' || (e && e.name === 'QuotaExceededError')) return 'Storage is full. Delete some books or covers and try again';
+    if (code === 'invalid_argument') return 'You can’t make changes to this shelf';
+    if (code === 'too_large') return 'That photo is too large';
+    return 'Couldn’t save. Check your connection and try again';
   }
 
   async function save() {
@@ -1093,17 +1189,13 @@
     if (formStatus === 'finished' && !finished && editing?.status !== 'finished') finished = today();
     if (formStatus === 'finished' && pages != null && editing?.status === 'reading') current = pages;
 
-    let hasCover = !!editing?.cover;
-    if (pendingCover instanceof Blob) hasCover = true;
-    else if (pendingCover === null) hasCover = false;
-
     const book = {
       id,
       title,
       author: f.author.value.trim(),
       status: formStatus,
       rating: formRating || null,
-      cover: hasCover ? id : null,
+      cover: editing?.cover || null,
       pages,
       current,
       started: f.started.value,
@@ -1115,19 +1207,28 @@
     };
 
     $('saveBtn').disabled = true;
+    let staleCover = null;
     try {
-      if (pendingCover instanceof Blob) await store.putCover(id, pendingCover);
-      else if (pendingCover === null) await store.delCover(id);
+      if (pendingCover instanceof Blob) {
+        const key = await store.putCover(id, pendingCover);
+        if (book.cover && book.cover !== key) staleCover = book.cover;
+        book.cover = key;
+      } else if (pendingCover === null) {
+        staleCover = book.cover;
+        book.cover = null;
+      }
       await store.putBook(book);
+      if (staleCover) await store.delCover(staleCover);
     } catch (e) {
       console.error(e);
-      toast('Couldn’t save — storage may be full');
+      toast(saveError(e));
       return;
     } finally {
       $('saveBtn').disabled = false;
     }
-    if (pendingCover instanceof Blob) setCoverURL(id, pendingCover);
-    else if (pendingCover === null) setCoverURL(id, null);
+    if (pendingCover !== undefined) {
+      setCoverURL(id, !book.cover ? null : cloud ? coverSrc(book.cover) : pendingCover);
+    }
 
     const i = books.findIndex((b) => b.id === id);
     if (i >= 0) books[i] = book; else books.push(book);
@@ -1139,10 +1240,10 @@
 
   async function removeBook() {
     if (!editing) return;
-    const id = editing.id;
+    const { id, cover } = editing;
     try {
-      await store.delCover(id);
       await store.delBook(id);
+      await store.delCover(cover);
     } catch (e) {
       console.error(e);
       toast('Couldn’t delete');
@@ -1180,15 +1281,30 @@
       const covers = {};
       for (const b of books) {
         if (!b.cover) continue;
-        const blob = await store.getCover(b.id);
-        if (blob) covers[b.id] = await blobToDataURL(blob);
+        try {
+          const blob = await store.getCover(b.cover);
+          if (blob) covers[b.id] = await blobToDataURL(blob);
+        } catch { /* a missing cover shouldn't block the backup */ }
       }
       const data = { app: 'bookshelf', version: 1, exportedAt: new Date().toISOString(), books, covers };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const filename = `bookshelf-backup-${today()}.json`;
+      if (window.claude) {
+        // Artifact frames block <a download>; hand the file to the viewer instead.
+        if (!cloud || !cloud.downloads) { toast('Saving files isn’t available here'); return; }
+        try {
+          await cloud.downloads.save({ filename, data: blob });
+        } catch (e) {
+          if (e && e.code !== 'declined') toast('Couldn’t save the backup file');
+          return;
+        }
+        toast(`Backed up ${books.length} book${books.length === 1 ? '' : 's'}`);
+        return;
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `bookshelf-backup-${today()}.json`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1218,14 +1334,14 @@
       for (const raw of list) {
         if (!raw || typeof raw !== 'object' || !raw.title) continue;
         const book = normalize(raw);
+        const old = books.find((b) => b.id === book.id);
         const src = covers[raw.id];
-        if (typeof src === 'string' && src.startsWith('data:')) {
-          try { await store.putCover(book.id, dataURLToBlob(src)); book.cover = book.id; } catch { book.cover = null; }
-        } else {
-          book.cover = null;
-          await store.delCover(book.id);
+        book.cover = null;
+        if (typeof src === 'string' && src.startsWith('data:') && canAddCovers()) {
+          try { book.cover = await store.putCover(book.id, dataURLToBlob(src)); } catch { /* keep the book without it */ }
         }
         await store.putBook(book);
+        if (old && old.cover && old.cover !== book.cover) await store.delCover(old.cover);
         count++;
       }
     } catch (e) {
@@ -1239,6 +1355,14 @@
   }
 
   // ---------- Events ----------
+  // A cover that fails to load (e.g. a deleted asset) falls back to a plain spine color.
+  document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (img.tagName === 'IMG' && img.parentNode && img.parentNode.classList.contains('cover')) {
+      img.parentNode.classList.add('missing');
+      img.remove();
+    }
+  }, true);
   $('tabs').addEventListener('click', (e) => {
     const t = e.target.closest('[data-tab]');
     if (!t || t.dataset.tab === tab) return;
@@ -1315,14 +1439,36 @@
   });
 
   // ---------- Start ----------
+  const NOTES = {
+    cloud: 'Your books are saved with your Claude account, so they appear wherever you open this artifact. Use a backup file to move them to the GitHub Pages version.',
+    local: 'Your books live in this browser on this device only. Back up before switching phones or clearing browser data.',
+    memory: 'Nothing is being saved on this device. Back up to a file before you close the page.',
+  };
   (async () => {
-    db = await openDB();
-    if (!db) $('banner').hidden = false;
+    render();
+    cloud = await connectCloud();
+    if (cloud) {
+      $('storageNote').textContent = NOTES.cloud;
+      cloud.books.onSnapshot((snap) => {
+        setBooks(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
+        ready = true;
+        render();
+      }, (e) => {
+        console.error(e);
+        if (e && e.code !== 'revoked') toast('Sync stopped. Reload to reconnect');
+      });
+      return;
+    }
+    idb = await openDB();
+    if (!idb) $('banner').hidden = false;
+    $('storageNote').textContent = idb ? NOTES.local : NOTES.memory;
     try { await loadAll(); } catch (e) { console.error(e); }
+    ready = true;
     render();
   })();
 
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // Service workers don't run inside a Claude artifact frame.
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.claude) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 })();
