@@ -1,0 +1,1331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bookshelf</title>
+<meta name="description" content="A personal reading tracker that keeps everything on your device.">
+<meta name="theme-color" content="#2F5D50" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bookshelf">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400&display=swap">
+<style>
+  :root {
+    --bg: #ECEFEA;
+    --card: #F8F9F6;
+    --ink: #1C241F;
+    --muted: #5E6B63;
+    --accent: #2F5D50;
+    --on-accent: #F8F9F6;
+    --accent-soft: rgba(47, 93, 80, 0.12);
+    --star: #C8901A;
+    --star-empty: rgba(28, 36, 31, 0.18);
+    --line: rgba(28, 36, 31, 0.12);
+    --field: #FFFFFF;
+    --danger: #A8402A;
+    --on-danger: #FFFFFF;
+    --track: rgba(28, 36, 31, 0.1);
+    --banner: #F6E7C4;
+    --banner-ink: #5A4210;
+    --scrim: rgba(18, 22, 20, 0.45);
+    --shadow: 0 1px 2px rgba(28, 36, 31, 0.06), 0 4px 14px rgba(28, 36, 31, 0.07);
+    --shadow-lg: 0 10px 40px rgba(18, 22, 20, 0.22);
+    --ph-sat: 34%;
+    --ph-light: 36%;
+    --ph-ink: #F6F1E3;
+
+    --f-head: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --f-body: "Literata", Georgia, "Times New Roman", serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --r: 14px;
+    --gutter: 16px;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-r: env(safe-area-inset-right, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121614;
+      --card: #1B211E;
+      --ink: #E3E8E2;
+      --muted: #97A49C;
+      --accent: #7DB3A0;
+      --on-accent: #0F1A16;
+      --accent-soft: rgba(125, 179, 160, 0.14);
+      --star: #E8B94A;
+      --star-empty: rgba(227, 232, 226, 0.2);
+      --line: rgba(227, 232, 226, 0.12);
+      --field: #151A17;
+      --danger: #E07A62;
+      --on-danger: #1A0F0B;
+      --track: rgba(227, 232, 226, 0.12);
+      --banner: #3A2F16;
+      --banner-ink: #F2DDA6;
+      --scrim: rgba(0, 0, 0, 0.6);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
+      --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);
+      --ph-sat: 28%;
+      --ph-light: 30%;
+      --ph-ink: #EDE7D6;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    padding-left: var(--safe-l);
+    padding-right: var(--safe-r);
+  }
+  body.locked { overflow: hidden; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  img { display: block; max-width: 100%; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--gutter); }
+  .mono { font-family: var(--f-mono); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Header */
+  header.top { padding-top: calc(var(--safe-t) + 20px); padding-bottom: 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { width: 34px; height: 34px; border-radius: 9px; }
+  h1 {
+    font-family: var(--f-head);
+    font-weight: 800;
+    font-size: 30px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin: 0;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 18px 0 14px;
+  }
+  .stat {
+    background: var(--card);
+    border-radius: var(--r);
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+  }
+  .stat b {
+    display: block;
+    font-family: var(--f-mono);
+    font-weight: 500;
+    font-size: 22px;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .stat span {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+  .search { position: relative; }
+  .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
+  .search input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 11px 16px 11px 40px;
+    font-size: 16px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .search input::placeholder { color: var(--muted); }
+
+  /* Tabs */
+  nav.tabs {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    padding-top: var(--safe-t);
+    border-bottom: 1px solid var(--line);
+  }
+  @supports not (background: color-mix(in srgb, red 50%, blue)) { nav.tabs { background: var(--bg); } }
+  .tabs-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .tabs-row::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-family: var(--f-head);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .tab .count {
+    font-family: var(--f-mono);
+    font-weight: 500;
+    font-size: 12px;
+    background: var(--track);
+    border-radius: 999px;
+    padding: 1px 7px;
+    min-width: 22px;
+    text-align: center;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+  .tab[aria-selected="true"] .count { background: rgba(255, 255, 255, 0.2); }
+
+  /* Banner */
+  .banner {
+    background: var(--banner);
+    color: var(--banner-ink);
+    border-radius: var(--r);
+    padding: 12px 14px;
+    margin-top: 14px;
+    font-size: 14px;
+  }
+  .banner strong { font-family: var(--f-head); }
+
+  /* Grid & cards */
+  main.wrap { padding-top: 16px; padding-bottom: 24px; min-height: 50vh; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+    gap: 18px 14px;
+  }
+  @media (min-width: 700px) { .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 24px 18px; } }
+  .card {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    min-width: 0;
+    border-radius: 6px;
+  }
+  .card:active .cover { transform: scale(0.98); }
+  .cover {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 3px 7px 7px 3px;
+    overflow: hidden;
+    background: var(--track);
+    box-shadow: var(--shadow);
+    transition: transform 0.12s ease;
+  }
+  .cover img { width: 100%; height: 100%; object-fit: cover; }
+  .cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(to right,
+      rgba(0, 0, 0, 0.28) 0,
+      rgba(0, 0, 0, 0.08) 3%,
+      rgba(255, 255, 255, 0.14) 4.5%,
+      rgba(255, 255, 255, 0) 8%,
+      rgba(0, 0, 0, 0) 100%);
+  }
+  .cover.ph {
+    background: hsl(var(--h) var(--ph-sat) var(--ph-light));
+    color: var(--ph-ink);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 18% 12% 14% 16%;
+  }
+  .cover.ph::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: 9%;
+    height: 7%;
+    border-top: 1.5px solid rgba(255, 255, 255, 0.28);
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.28);
+  }
+  .ph-title {
+    font-family: var(--f-head);
+    font-weight: 700;
+    font-size: clamp(15px, 4.4vw, 21px);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ph-author {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.85;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-body { display: block; padding: 9px 2px 0; min-width: 0; }
+  .card-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-family: var(--f-head);
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .card-author {
+    display: block;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.35;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-meta { display: block; margin-top: 6px; }
+  .tag {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-bottom: 5px;
+  }
+  .progress { display: block; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+  .progress > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+  .progress-label { display: block; font-family: var(--f-mono); font-size: 12px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stars { display: inline-flex; gap: 1px; font-size: 15px; line-height: 1; letter-spacing: 0; }
+  .stars .on { color: var(--star); }
+  .stars .off { color: var(--star-empty); }
+  .card-notes {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--muted);
+    margin-top: 4px;
+    font-style: italic;
+  }
+  .card-rec { display: block; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+  .card-rec .mono { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; display: block; }
+  .card-rec span:last-child {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 48px 12px; max-width: 420px; margin: 0 auto; }
+  .empty-art { display: flex; gap: 6px; justify-content: center; align-items: flex-end; height: 70px; margin-bottom: 16px; }
+  .empty-art i { display: block; width: 16px; border-radius: 3px; background: var(--track); }
+  .empty-art i:nth-child(1) { height: 60px; }
+  .empty-art i:nth-child(2) { height: 48px; }
+  .empty-art i:nth-child(3) { height: 54px; transform: rotate(14deg); transform-origin: bottom right; }
+  .empty h2 { font-family: var(--f-head); font-size: 21px; font-weight: 700; margin: 0 0 6px; }
+  .empty p { margin: 0 0 18px; color: var(--muted); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-family: var(--f-head);
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
+  .btn.ghost { background: transparent; border-color: transparent; }
+  .btn.ghost.danger-text { color: var(--danger); }
+  .btn:disabled { opacity: 0.55; cursor: default; }
+
+  .fab {
+    position: fixed;
+    right: calc(var(--gutter) + var(--safe-r));
+    bottom: calc(var(--gutter) + var(--safe-b));
+    z-index: 20;
+    border: 0;
+    border-radius: 999px;
+    padding: 14px 20px 14px 16px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-family: var(--f-head);
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: var(--shadow-lg);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fab svg { width: 20px; height: 20px; }
+
+  /* Footer */
+  footer.wrap {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+    padding-bottom: calc(96px + var(--safe-b));
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .footer-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  footer p { margin: 0; }
+
+  /* Sheet */
+  dialog.sheet {
+    border: 0;
+    padding: 0;
+    margin: auto auto 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - var(--safe-t) - 24px);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 20px 20px 0 0;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  dialog.sheet[open] { display: flex; flex-direction: column; animation: sheet-up 0.22s ease-out; }
+  dialog.sheet::backdrop { background: var(--scrim); }
+  @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (min-width: 640px) {
+    dialog.sheet { margin: auto; width: min(560px, calc(100% - 48px)); max-height: calc(100dvh - 64px); border-radius: 20px; }
+    @keyframes sheet-up { from { transform: translateY(16px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
+  }
+  @media (prefers-reduced-motion: reduce) { dialog.sheet[open] { animation: none; } }
+  .sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px 20px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .sheet-head::before {
+    content: "";
+    position: absolute;
+    top: 6px; left: 50%;
+    width: 36px; height: 4px;
+    margin-left: -18px;
+    border-radius: 999px;
+    background: var(--line);
+  }
+  @media (min-width: 640px) { .sheet-head::before { display: none; } }
+  .sheet-head h2 { font-family: var(--f-head); font-weight: 700; font-size: 20px; margin: 0; }
+  .icon-btn { border: 0; background: transparent; width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; color: var(--muted); }
+  .icon-btn svg { width: 22px; height: 22px; }
+  .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 16px 20px 20px; flex: 1 1 auto; }
+  .sheet-foot {
+    border-top: 1px solid var(--line);
+    padding: 12px 16px calc(12px + var(--safe-b));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sheet-foot .spacer { flex: 1; }
+  .confirm { display: flex; align-items: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+  .confirm p { margin: 0; flex: 1 1 140px; font-size: 14px; }
+  .confirm p strong { font-family: var(--f-head); }
+
+  .cover-row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
+  .cover-row .cover { width: 104px; flex: 0 0 104px; }
+  .cover-row .ph-title { font-size: 14px; }
+  .cover-row .ph-author { font-size: 9px; }
+  .cover-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding-top: 4px; }
+  .cover-actions small { color: var(--muted); font-size: 13px; line-height: 1.4; }
+  .file-btn { position: relative; overflow: hidden; }
+  .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+
+  .field { margin-bottom: 16px; }
+  .field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .field-row > .field { min-width: 0; }
+  label.lbl, .lbl {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .lbl em { font-style: normal; color: var(--danger); }
+  .input {
+    width: 100%;
+    min-width: 0;
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 16px;
+    line-height: 1.4;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input[type="number"], .input[type="date"] { font-family: var(--f-mono); font-size: 16px; }
+  .input[type="date"] { min-height: 46px; }
+  textarea.input { resize: vertical; min-height: 96px; }
+  .input.invalid { border-color: var(--danger); }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .err { font-size: 13px; color: var(--danger); margin-top: 4px; }
+
+  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  @media (min-width: 420px) { .seg { grid-template-columns: repeat(4, 1fr); } }
+  .seg button {
+    border: 1px solid var(--line);
+    background: var(--field);
+    border-radius: 10px;
+    padding: 9px 6px;
+    font-family: var(--f-head);
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+  .seg button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+  .rate { display: flex; align-items: center; gap: 2px; }
+  .rate button {
+    border: 0;
+    background: transparent;
+    font-size: 32px;
+    line-height: 1;
+    padding: 2px 3px;
+    color: var(--star-empty);
+  }
+  .rate button.on { color: var(--star); }
+  .rate .mono { font-size: 12px; color: var(--muted); margin-left: 8px; }
+
+  [hidden] { display: none !important; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(84px + var(--safe-b));
+    transform: translate(-50%, 20px);
+    opacity: 0;
+    pointer-events: none;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-family: var(--f-head);
+    font-weight: 600;
+    font-size: 15px;
+    box-shadow: var(--shadow-lg);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+    max-width: calc(100% - 32px);
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+
+<header class="top wrap">
+  <div class="brand">
+    <img src="icons/icon.svg" alt="" width="34" height="34">
+    <h1>Bookshelf</h1>
+  </div>
+  <div class="stats" aria-label="Reading stats">
+    <div class="stat"><b id="statReading">0</b><span>Reading now</span></div>
+    <div class="stat"><b id="statFinished">0</b><span>Finished <span id="yearA" style="display:inline"></span></span></div>
+    <div class="stat"><b id="statPages">0</b><span>Pages <span id="yearB" style="display:inline"></span></span></div>
+  </div>
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <label for="search" class="sr-only">Search books</label>
+    <input id="search" type="search" placeholder="Search title, author, notes…" autocomplete="off" enterkeyhint="search">
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Shelves">
+  <div class="wrap tabs-row" role="tablist" id="tabs"></div>
+</nav>
+
+<main class="wrap">
+  <div id="banner" class="banner" hidden>
+    <strong>This browser can't save your books.</strong>
+    Storage is unavailable (private browsing can cause this), so anything you add only lasts until you close the page. Use “Back up to a file” to keep it.
+  </div>
+  <div id="grid" class="grid" role="tabpanel" aria-live="polite"></div>
+  <div id="empty" class="empty" hidden></div>
+</main>
+
+<footer class="wrap">
+  <div class="footer-actions">
+    <button class="btn" id="backupBtn" type="button">Back up to a file</button>
+    <button class="btn" id="restoreBtn" type="button">Restore from a file</button>
+    <input id="restoreInput" type="file" accept="application/json,.json" hidden>
+  </div>
+  <p>Your books live in this browser on this device only. Back up before switching phones or clearing browser data.</p>
+</footer>
+
+<button class="fab" id="fab" type="button">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  Add book
+</button>
+
+<dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+  <form id="form" method="dialog" novalidate style="display:contents">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Add book</h2>
+      <button class="icon-btn" type="button" id="closeBtn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="sheet-body">
+      <div class="cover-row">
+        <span id="coverPreview"></span>
+        <div class="cover-actions">
+          <span class="btn file-btn">
+            <span id="coverBtnLabel">Add cover photo</span>
+            <input id="coverInput" type="file" accept="image/*" aria-label="Cover photo">
+          </span>
+          <button class="btn ghost danger-text" type="button" id="removeCoverBtn" hidden>Remove photo</button>
+          <small>Snap the cover or pick a photo. It's resized and kept on this device.</small>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fTitle">Title <em>*</em></label>
+        <input class="input" id="fTitle" autocomplete="off" required>
+        <div class="err" id="titleErr" hidden>Give the book a title.</div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="fAuthor">Author</label>
+        <input class="input" id="fAuthor" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <span class="lbl" id="shelfLbl">Shelf</span>
+        <div class="seg" role="radiogroup" aria-labelledby="shelfLbl" id="shelfPicker"></div>
+      </div>
+
+      <div class="field" id="ratingField">
+        <span class="lbl" id="ratingLbl">Rating</span>
+        <div class="rate" role="group" aria-labelledby="ratingLbl" id="rating"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="lbl" for="fPages">Pages</label>
+          <input class="input" id="fPages" type="number" inputmode="numeric" min="0" step="1">
+        </div>
+        <div class="field" id="currentField">
+          <label class="lbl" for="fCurrent">Current page</label>
+          <input class="input" id="fCurrent" type="number" inputmode="numeric" min="0" step="1">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="lbl" for="fStarted">Started</label>
+          <input class="input" id="fStarted" type="date">
+        </div>
+        <div class="field">
+          <label class="lbl" for="fFinished">Finished</label>
+          <input class="input" id="fFinished" type="date">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl" for="fRec">Recommended by / why</label>
+        <input class="input" id="fRec" autocomplete="off" placeholder="Maya — “you'll love the ending”">
+      </div>
+      <div class="field">
+        <label class="lbl" for="fNotes">Notes</label>
+        <textarea class="input" id="fNotes" rows="4" placeholder="Quotes, thoughts, what stayed with you…"></textarea>
+      </div>
+    </div>
+
+    <div class="sheet-foot">
+      <div id="footMain" style="display:contents">
+        <button class="btn ghost danger-text" type="button" id="deleteBtn">Delete</button>
+        <span class="spacer"></span>
+        <button class="btn" type="button" id="cancelBtn">Cancel</button>
+        <button class="btn primary" type="submit" id="saveBtn">Save</button>
+      </div>
+      <div class="confirm" id="footConfirm" hidden>
+        <p><strong>Delete this book?</strong> Its notes and cover go too.</p>
+        <button class="btn" type="button" id="keepBtn">Keep</button>
+        <button class="btn danger" type="button" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Constants ----------
+  const SHELVES = [
+    { id: 'all', label: 'All',
+      empty: ['Your shelf is empty', 'Add what you’re reading, what you want to read, and what you’ve finished. Everything stays on this device.'] },
+    { id: 'reading', label: 'Reading',
+      empty: ['Nothing on the go', 'Books you’re in the middle of live here. Log your current page and watch the progress bar fill up.'] },
+    { id: 'toread', label: 'To read',
+      empty: ['Your “someday” pile is empty', 'Save books you want to read next — and who recommended them and why, so you remember when you get to them.'] },
+    { id: 'finished', label: 'Finished',
+      empty: ['No finished books yet', 'Books you read to the last page. Give them a rating and jot down what stayed with you.'] },
+    { id: 'dnf', label: 'Didn’t finish',
+      empty: ['Nothing abandoned', 'Books you put down for good. No guilt — a quick note on why helps future you.'] },
+  ];
+  const STATUSES = ['reading', 'toread', 'finished', 'dnf'];
+  const LABEL = Object.fromEntries(SHELVES.map((s) => [s.id, s.label]));
+  const TAB_KEY = 'bookshelf.tab';
+  const MAX_COVER = 900;
+
+  // ---------- Helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const thisYear = () => String(new Date().getFullYear());
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? n : null; };
+  const fmt = (n) => n.toLocaleString();
+  function hash(str) { // FNV-1a
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return h >>> 0;
+  }
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
+
+  // ---------- Storage (IndexedDB with in-memory fallback) ----------
+  const mem = { books: new Map(), covers: new Map() };
+  let db = null;
+
+  function openDB() {
+    return new Promise((resolve) => {
+      let req;
+      try {
+        if (!('indexedDB' in window) || !indexedDB) return resolve(null);
+        req = indexedDB.open('bookshelf', 1);
+      } catch { return resolve(null); }
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains('books')) d.createObjectStore('books', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('covers')) d.createObjectStore('covers');
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    });
+  }
+  function reqP(r) { return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+  function write(store, fn) {
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, 'readwrite');
+      fn(t.objectStore(store));
+      t.oncomplete = () => res();
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('Transaction aborted'));
+    });
+  }
+  const store = {
+    allBooks: () => db ? reqP(db.transaction('books').objectStore('books').getAll()) : Promise.resolve([...mem.books.values()]),
+    putBook: (b) => db ? write('books', (s) => s.put(b)) : (mem.books.set(b.id, b), Promise.resolve()),
+    delBook: (id) => db ? write('books', (s) => s.delete(id)) : (mem.books.delete(id), Promise.resolve()),
+    getCover: (id) => db ? reqP(db.transaction('covers').objectStore('covers').get(id)) : Promise.resolve(mem.covers.get(id)),
+    putCover: (id, blob) => db ? write('covers', (s) => s.put(blob, id)) : (mem.covers.set(id, blob), Promise.resolve()),
+    delCover: (id) => db ? write('covers', (s) => s.delete(id)) : (mem.covers.delete(id), Promise.resolve()),
+  };
+
+  let persistAsked = false;
+  function askPersist() {
+    if (persistAsked || !db || !navigator.storage || !navigator.storage.persist) return;
+    persistAsked = true;
+    navigator.storage.persisted().then((p) => p || navigator.storage.persist()).catch(() => {});
+  }
+
+  // ---------- State ----------
+  let books = [];
+  const coverURLs = new Map();
+  let tab = SHELVES.some((s) => s.id === lsGet(TAB_KEY)) ? lsGet(TAB_KEY) : 'all';
+  let query = '';
+
+  function setCoverURL(id, blob) {
+    if (coverURLs.has(id)) URL.revokeObjectURL(coverURLs.get(id));
+    if (blob) coverURLs.set(id, URL.createObjectURL(blob)); else coverURLs.delete(id);
+  }
+
+  function normalize(b) {
+    const status = STATUSES.includes(b.status) ? b.status : 'toread';
+    const rating = toInt(b.rating);
+    const now = new Date().toISOString();
+    const id = String(b.id || newId());
+    const date = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+    return {
+      id,
+      title: String(b.title || '').trim() || 'Untitled',
+      author: String(b.author || '').trim(),
+      status,
+      rating: rating && rating <= 5 ? rating : null,
+      cover: b.cover ? id : null,
+      pages: toInt(b.pages),
+      current: toInt(b.current),
+      started: date(b.started),
+      finished: date(b.finished),
+      recommendedBy: String(b.recommendedBy || '').trim(),
+      notes: String(b.notes || ''),
+      createdAt: b.createdAt || now,
+      updatedAt: b.updatedAt || now,
+    };
+  }
+
+  async function loadAll() {
+    books = (await store.allBooks()).map(normalize);
+    for (const url of coverURLs.values()) URL.revokeObjectURL(url);
+    coverURLs.clear();
+    await Promise.all(books.filter((b) => b.cover).map(async (b) => {
+      try { const blob = await store.getCover(b.id); if (blob) setCoverURL(b.id, blob); } catch { /* skip */ }
+    }));
+  }
+
+  // ---------- Rendering ----------
+  const matches = (b, q) => !q || [b.title, b.author, b.notes, b.recommendedBy].some((f) => f && f.toLowerCase().includes(q));
+
+  function sortBooks(list) {
+    const key = (b) => (b.status === 'finished' || b.status === 'dnf') && b.finished ? b.finished + 'T99' : b.updatedAt;
+    return list.slice().sort((a, b) => (key(b) > key(a) ? 1 : key(b) < key(a) ? -1 : 0));
+  }
+
+  function coverHTML(b) {
+    const url = coverURLs.get(b.id);
+    if (url) return `<span class="cover"><img src="${url}" alt="" loading="lazy" decoding="async"></span>`;
+    return `<span class="cover ph" style="--h:${hash(b.title || '') % 360}" aria-hidden="true">
+      <span class="ph-title">${esc(b.title || 'Untitled')}</span><span class="ph-author">${esc(b.author)}</span></span>`;
+  }
+
+  function starsHTML(n) {
+    let s = '';
+    for (let i = 1; i <= 5; i++) s += `<span class="${i <= n ? 'on' : 'off'}">★</span>`;
+    return `<span class="stars" aria-label="${n} of 5 stars">${s}</span>`;
+  }
+
+  function metaHTML(b) {
+    let html = '';
+    if (tab === 'all') html += `<span class="tag">${esc(LABEL[b.status])}</span>`;
+    if (b.status === 'reading') {
+      const cur = b.current || 0;
+      if (b.pages) {
+        const pct = Math.min(100, Math.round((cur / b.pages) * 100));
+        html += `<span class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></span>
+          <span class="progress-label">p. ${fmt(cur)} / ${fmt(b.pages)} · ${pct}%</span>`;
+      } else if (cur) {
+        html += `<span class="progress-label">p. ${fmt(cur)}</span>`;
+      }
+    } else if (b.status === 'finished' || b.status === 'dnf') {
+      if (b.rating) html += starsHTML(b.rating);
+      if (b.notes.trim()) html += `<span class="card-notes">${esc(b.notes.trim())}</span>`;
+    } else if (b.status === 'toread' && b.recommendedBy) {
+      html += `<span class="card-rec"><span class="mono">Recommended by</span><span>${esc(b.recommendedBy)}</span></span>`;
+    }
+    return html ? `<span class="card-meta">${html}</span>` : '';
+  }
+
+  function render() {
+    // counts
+    const counts = { all: books.length };
+    for (const s of STATUSES) counts[s] = 0;
+    for (const b of books) counts[b.status]++;
+    $('tabs').innerHTML = SHELVES.map((s) => `
+      <button class="tab" role="tab" type="button" data-tab="${s.id}" aria-selected="${s.id === tab}">
+        ${esc(s.label)} <span class="count">${counts[s.id]}</span>
+      </button>`).join('');
+
+    // stats
+    const y = thisYear();
+    const reading = books.filter((b) => b.status === 'reading');
+    const doneThisYear = books.filter((b) => b.status === 'finished' && b.finished.startsWith(y));
+    const pages = doneThisYear.reduce((n, b) => n + (b.pages || 0), 0)
+      + books.filter((b) => b.status === 'dnf' && b.finished.startsWith(y)).reduce((n, b) => n + (b.current || 0), 0)
+      + reading.filter((b) => !b.started || b.started.startsWith(y)).reduce((n, b) => n + (b.current || 0), 0);
+    $('statReading').textContent = fmt(reading.length);
+    $('statFinished').textContent = fmt(doneThisYear.length);
+    $('statPages').textContent = fmt(pages);
+    $('yearA').textContent = $('yearB').textContent = y;
+
+    // grid
+    const q = query.trim().toLowerCase();
+    const list = sortBooks(books.filter((b) => (tab === 'all' || b.status === tab) && matches(b, q)));
+    $('grid').innerHTML = list.map((b) => `
+      <button class="card" type="button" data-id="${esc(b.id)}" aria-label="Edit ${esc(b.title)}">
+        ${coverHTML(b)}
+        <span class="card-body">
+          <span class="card-title">${esc(b.title)}</span>
+          ${b.author ? `<span class="card-author">${esc(b.author)}</span>` : ''}
+          ${metaHTML(b)}
+        </span>
+      </button>`).join('');
+
+    // empty state
+    const empty = $('empty');
+    if (list.length) { empty.hidden = true; return; }
+    empty.hidden = false;
+    const shelf = SHELVES.find((s) => s.id === tab);
+    if (q) {
+      empty.innerHTML = `<div class="empty-art"><i></i><i></i><i></i></div>
+        <h2>No matches</h2><p>Nothing on ${tab === 'all' ? 'your shelves' : `“${esc(shelf.label)}”`} matches “${esc(query.trim())}”.</p>
+        <button class="btn" type="button" data-action="clear-search">Clear search</button>`;
+    } else {
+      empty.innerHTML = `<div class="empty-art"><i></i><i></i><i></i></div>
+        <h2>${esc(shelf.empty[0])}</h2><p>${esc(shelf.empty[1])}</p>
+        <button class="btn primary" type="button" data-action="add">+ Add book</button>`;
+    }
+  }
+
+  // ---------- Toast ----------
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ---------- Image downscale ----------
+  function loadImage(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); res(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not read that image')); };
+      img.src = url;
+    });
+  }
+  async function downscale(file) {
+    const img = await loadImage(file);
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const scale = Math.min(1, MAX_COVER / Math.max(w, h));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; // JPEG has no alpha
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('Could not process that image'))), 'image/jpeg', 0.85));
+  }
+
+  // ---------- Sheet (add / edit) ----------
+  const sheet = $('sheet');
+  const f = {
+    title: $('fTitle'), author: $('fAuthor'), pages: $('fPages'), current: $('fCurrent'),
+    started: $('fStarted'), finished: $('fFinished'), rec: $('fRec'), notes: $('fNotes'),
+  };
+  let editing = null;        // book being edited, or null when adding
+  let formStatus = 'reading';
+  let formRating = 0;
+  let pendingCover;          // undefined = unchanged, Blob = new photo, null = removed
+  let previewURL = null;
+
+  $('shelfPicker').innerHTML = STATUSES.map((s) =>
+    `<button type="button" role="radio" data-status="${s}" aria-checked="false">${esc(LABEL[s])}</button>`).join('');
+  $('rating').innerHTML = [1, 2, 3, 4, 5].map((n) =>
+    `<button type="button" data-star="${n}" aria-label="${n} star${n > 1 ? 's' : ''}" aria-pressed="false">★</button>`).join('')
+    + '<span class="mono" id="ratingHint"></span>';
+
+  function setStatus(s, fromUser) {
+    const prev = formStatus;
+    formStatus = s;
+    for (const b of $('shelfPicker').children) b.setAttribute('aria-checked', String(b.dataset.status === s));
+    $('ratingField').hidden = !(s === 'finished' || s === 'dnf');
+    $('currentField').hidden = s !== 'reading';
+    if (fromUser && prev !== s) {
+      if (s === 'finished' && !f.finished.value) f.finished.value = today();
+      if (s === 'reading' && !f.started.value) f.started.value = today();
+    }
+  }
+  function setRating(n) {
+    formRating = n;
+    for (const b of $('rating').querySelectorAll('button')) {
+      const on = Number(b.dataset.star) <= n;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(Number(b.dataset.star) === n));
+    }
+    $('ratingHint').textContent = n ? `${n}/5 · tap again to clear` : 'No rating';
+  }
+  function renderPreview() {
+    let url = null;
+    if (pendingCover instanceof Blob) {
+      if (!previewURL) previewURL = URL.createObjectURL(pendingCover);
+      url = previewURL;
+    } else if (pendingCover === undefined && editing) {
+      url = coverURLs.get(editing.id) || null;
+    }
+    const fake = { id: '_preview', title: f.title.value.trim() || 'Title', author: f.author.value.trim() };
+    $('coverPreview').innerHTML = url ? `<span class="cover"><img src="${url}" alt="Cover preview"></span>` : coverHTML(fake);
+    $('removeCoverBtn').hidden = !url;
+    $('coverBtnLabel').textContent = url ? 'Change photo' : 'Add cover photo';
+  }
+  function clearPreviewURL() { if (previewURL) { URL.revokeObjectURL(previewURL); previewURL = null; } }
+
+  function openSheet(book) {
+    editing = book || null;
+    pendingCover = undefined;
+    clearPreviewURL();
+    $('sheetTitle').textContent = book ? 'Edit book' : 'Add book';
+    f.title.value = book?.title || '';
+    f.author.value = book?.author || '';
+    f.pages.value = book?.pages ?? '';
+    f.current.value = book?.current ?? '';
+    f.started.value = book?.started || '';
+    f.finished.value = book?.finished || '';
+    f.rec.value = book?.recommendedBy || '';
+    f.notes.value = book?.notes || '';
+    f.title.classList.remove('invalid');
+    $('titleErr').hidden = true;
+    $('coverInput').value = '';
+    formStatus = book?.status || (tab === 'all' ? 'reading' : tab);
+    setStatus(formStatus, false);
+    if (!book && formStatus === 'reading') f.started.value = today();
+    if (!book && formStatus === 'finished') f.finished.value = today();
+    setRating(book?.rating || 0);
+    $('deleteBtn').hidden = !book;
+    showConfirm(false);
+    renderPreview();
+    sheet.showModal();
+    document.body.classList.add('locked');
+    $('sheet').querySelector('.sheet-body').scrollTop = 0;
+    if (!book && matchMedia('(hover: hover)').matches) f.title.focus();
+  }
+  function closeSheet() { if (sheet.open) sheet.close(); }
+  sheet.addEventListener('close', () => {
+    document.body.classList.remove('locked');
+    clearPreviewURL();
+    editing = null;
+  });
+  function showConfirm(on) {
+    $('footMain').hidden = on;
+    $('footConfirm').hidden = !on;
+  }
+
+  async function save() {
+    const title = f.title.value.trim();
+    if (!title) {
+      f.title.classList.add('invalid');
+      $('titleErr').hidden = false;
+      f.title.focus();
+      return;
+    }
+    const now = new Date().toISOString();
+    const isNew = !editing;
+    const id = editing?.id || newId();
+    const pages = toInt(f.pages.value);
+    let current = toInt(f.current.value);
+    if (pages != null && current != null && current > pages) current = pages;
+    let finished = f.finished.value;
+    if (formStatus === 'finished' && !finished && editing?.status !== 'finished') finished = today();
+    if (formStatus === 'finished' && pages != null && editing?.status === 'reading') current = pages;
+
+    let hasCover = !!editing?.cover;
+    if (pendingCover instanceof Blob) hasCover = true;
+    else if (pendingCover === null) hasCover = false;
+
+    const book = {
+      id,
+      title,
+      author: f.author.value.trim(),
+      status: formStatus,
+      rating: formRating || null,
+      cover: hasCover ? id : null,
+      pages,
+      current,
+      started: f.started.value,
+      finished,
+      recommendedBy: f.rec.value.trim(),
+      notes: f.notes.value,
+      createdAt: editing?.createdAt || now,
+      updatedAt: now,
+    };
+
+    $('saveBtn').disabled = true;
+    try {
+      if (pendingCover instanceof Blob) await store.putCover(id, pendingCover);
+      else if (pendingCover === null) await store.delCover(id);
+      await store.putBook(book);
+    } catch (e) {
+      console.error(e);
+      toast('Couldn’t save — storage may be full');
+      return;
+    } finally {
+      $('saveBtn').disabled = false;
+    }
+    if (pendingCover instanceof Blob) setCoverURL(id, pendingCover);
+    else if (pendingCover === null) setCoverURL(id, null);
+
+    const i = books.findIndex((b) => b.id === id);
+    if (i >= 0) books[i] = book; else books.push(book);
+    askPersist();
+    closeSheet();
+    render();
+    toast(isNew ? `Added to ${LABEL[book.status]}` : 'Saved');
+  }
+
+  async function removeBook() {
+    if (!editing) return;
+    const id = editing.id;
+    try {
+      await store.delCover(id);
+      await store.delBook(id);
+    } catch (e) {
+      console.error(e);
+      toast('Couldn’t delete');
+      return;
+    }
+    setCoverURL(id, null);
+    books = books.filter((b) => b.id !== id);
+    closeSheet();
+    render();
+    toast('Deleted');
+  }
+
+  // ---------- Backup / restore ----------
+  const blobToDataURL = (blob) => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
+  function dataURLToBlob(url) {
+    const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(url);
+    if (!m) throw new Error('Bad image data');
+    const type = m[1] || 'application/octet-stream';
+    if (!m[2]) return new Blob([decodeURIComponent(m[3])], { type });
+    const bin = atob(m[3]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type });
+  }
+
+  async function backup() {
+    const btn = $('backupBtn');
+    btn.disabled = true;
+    try {
+      const covers = {};
+      for (const b of books) {
+        if (!b.cover) continue;
+        const blob = await store.getCover(b.id);
+        if (blob) covers[b.id] = await blobToDataURL(blob);
+      }
+      const data = { app: 'bookshelf', version: 1, exportedAt: new Date().toISOString(), books, covers };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bookshelf-backup-${today()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast(`Backed up ${books.length} book${books.length === 1 ? '' : 's'}`);
+    } catch (e) {
+      console.error(e);
+      toast('Backup failed');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function restore(file) {
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      toast('That file isn’t a Bookshelf backup');
+      return;
+    }
+    const list = Array.isArray(data) ? data : data && Array.isArray(data.books) ? data.books : null;
+    if (!list) { toast('That file isn’t a Bookshelf backup'); return; }
+    const covers = (data && data.covers) || {};
+    let count = 0;
+    try {
+      for (const raw of list) {
+        if (!raw || typeof raw !== 'object' || !raw.title) continue;
+        const book = normalize(raw);
+        const src = covers[raw.id];
+        if (typeof src === 'string' && src.startsWith('data:')) {
+          try { await store.putCover(book.id, dataURLToBlob(src)); book.cover = book.id; } catch { book.cover = null; }
+        } else {
+          book.cover = null;
+          await store.delCover(book.id);
+        }
+        await store.putBook(book);
+        count++;
+      }
+    } catch (e) {
+      console.error(e);
+      toast('Restore stopped — storage may be full');
+    }
+    await loadAll();
+    render();
+    if (count) { askPersist(); toast(`Restored ${count} book${count === 1 ? '' : 's'}`); }
+    else toast('No books found in that file');
+  }
+
+  // ---------- Events ----------
+  $('tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]');
+    if (!t || t.dataset.tab === tab) return;
+    tab = t.dataset.tab;
+    lsSet(TAB_KEY, tab);
+    render();
+    t.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+  });
+  $('search').addEventListener('input', (e) => { query = e.target.value; render(); });
+  $('grid').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-id]');
+    if (!c) return;
+    const book = books.find((b) => b.id === c.dataset.id);
+    if (book) openSheet(book);
+  });
+  $('empty').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-action]');
+    if (!a) return;
+    if (a.dataset.action === 'add') openSheet(null);
+    if (a.dataset.action === 'clear-search') { $('search').value = ''; query = ''; render(); }
+  });
+  $('fab').addEventListener('click', () => openSheet(null));
+
+  $('shelfPicker').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-status]');
+    if (b) setStatus(b.dataset.status, true);
+  });
+  $('rating').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-star]');
+    if (!b) return;
+    const n = Number(b.dataset.star);
+    setRating(n === formRating ? 0 : n);
+  });
+  f.title.addEventListener('input', () => {
+    if (f.title.value.trim()) { f.title.classList.remove('invalid'); $('titleErr').hidden = true; }
+    if (!(pendingCover instanceof Blob) && !(pendingCover === undefined && editing && coverURLs.get(editing.id))) renderPreview();
+  });
+  f.author.addEventListener('input', () => {
+    if (!(pendingCover instanceof Blob) && !(pendingCover === undefined && editing && coverURLs.get(editing.id))) renderPreview();
+  });
+  $('coverInput').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const blob = await downscale(file);
+      clearPreviewURL();
+      pendingCover = blob;
+      renderPreview();
+    } catch (err) {
+      toast(err.message || 'Could not use that image');
+    }
+    e.target.value = '';
+  });
+  $('removeCoverBtn').addEventListener('click', () => {
+    clearPreviewURL();
+    pendingCover = editing?.cover ? null : undefined;
+    renderPreview();
+  });
+
+  $('form').addEventListener('submit', (e) => { e.preventDefault(); save(); });
+  $('closeBtn').addEventListener('click', closeSheet);
+  $('cancelBtn').addEventListener('click', closeSheet);
+  $('deleteBtn').addEventListener('click', () => { showConfirm(true); $('keepBtn').focus(); });
+  $('keepBtn').addEventListener('click', () => { showConfirm(false); $('deleteBtn').focus(); });
+  $('confirmDeleteBtn').addEventListener('click', removeBook);
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); }); // backdrop tap
+
+  $('backupBtn').addEventListener('click', backup);
+  $('restoreBtn').addEventListener('click', () => $('restoreInput').click());
+  $('restoreInput').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (file) await restore(file);
+  });
+
+  // ---------- Start ----------
+  (async () => {
+    db = await openDB();
+    if (!db) $('banner').hidden = false;
+    try { await loadAll(); } catch (e) { console.error(e); }
+    render();
+  })();
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
