@@ -6,11 +6,11 @@ A personal book-reading tracker that runs entirely in your browser. You can host
 
 ## What it does
 
-- **Shelves:** All, Reading, To read, Finished and Didn't finish, each with a count. The app remembers the last shelf you opened.
-- **Search** across titles, authors, notes and "recommended by".
+- **Shelves:** All, Reading, To read and Finished, each with a count. The app remembers the last shelf you opened.
+- **Search** across titles, authors and notes.
 - **Stats** for books you're reading now, books finished this year and pages read this year.
-- **Book cards** show the cover photo, or a colored placeholder spine when there's no photo. Reading books get a progress bar, finished books show their star rating and the start of your notes, and to-read books show who recommended them.
-- **Add and edit** in a bottom sheet: cover photo (resized on your device), title, author, shelf, a 1–5 star rating, pages, current page, start and finish dates, "recommended by / why" and notes. Moving a book to Finished fills in today's date.
+- **Book cards** show the cover photo, or a colored placeholder spine when there's no photo. Finished books show their star rating and the start of your notes. Reading and to-read books show their page count and the date you added them.
+- **Add and edit** in a bottom sheet: cover photo (resized on your device), title, author, shelf, a 1–5 star rating (finished books only), pages, date added (defaults to today) and notes. When a book moves to Finished, the app records that date for the yearly stats.
 - **Backup and restore** to a single JSON file, with cover images included.
 - **Light and dark mode** follow your system setting.
 

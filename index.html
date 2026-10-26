@@ -372,9 +372,7 @@
     padding: 1px 6px;
     margin-bottom: 5px;
   }
-  .progress { display: block; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
-  .progress > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
-  .progress-label { display: block; font-family: var(--f-mono); font-size: 12px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .card-facts { display: block; font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .stars { display: inline-flex; gap: 1px; font-size: 15px; line-height: 1; letter-spacing: 0; }
   .stars .on { color: var(--star); }
   .stars .off { color: var(--star-empty); }
@@ -389,15 +387,6 @@
     margin-top: 4px;
     font-style: italic;
   }
-  .card-rec { display: block; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
-  .card-rec .mono { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; display: block; }
-  .card-rec span:last-child {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
   /* Empty state */
   .empty { text-align: center; padding: 48px 12px; max-width: 420px; margin: 0 auto; }
   .empty-art { display: flex; gap: 6px; justify-content: center; align-items: flex-end; height: 70px; margin-bottom: 16px; }
@@ -560,8 +549,7 @@
   .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
   .err { font-size: 13px; color: var(--danger); margin-top: 4px; }
 
-  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-  @media (min-width: 420px) { .seg { grid-template-columns: repeat(4, 1fr); } }
+  .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .seg button {
     border: 1px solid var(--line);
     background: var(--field);
@@ -705,27 +693,12 @@
           <label class="lbl" for="fPages">Pages</label>
           <input class="input" id="fPages" type="number" inputmode="numeric" min="0" step="1">
         </div>
-        <div class="field" id="currentField">
-          <label class="lbl" for="fCurrent">Current page</label>
-          <input class="input" id="fCurrent" type="number" inputmode="numeric" min="0" step="1">
+        <div class="field">
+          <label class="lbl" for="fAdded">Added</label>
+          <input class="input" id="fAdded" type="date">
         </div>
       </div>
 
-      <div class="field-row">
-        <div class="field">
-          <label class="lbl" for="fStarted">Started</label>
-          <input class="input" id="fStarted" type="date">
-        </div>
-        <div class="field">
-          <label class="lbl" for="fFinished">Finished</label>
-          <input class="input" id="fFinished" type="date">
-        </div>
-      </div>
-
-      <div class="field">
-        <label class="lbl" for="fRec">Recommended by / why</label>
-        <input class="input" id="fRec" autocomplete="off" placeholder="Maya — “you'll love the ending”">
-      </div>
       <div class="field">
         <label class="lbl" for="fNotes">Notes</label>
         <textarea class="input" id="fNotes" rows="4" placeholder="Quotes, thoughts, what stayed with you…"></textarea>
@@ -759,15 +732,13 @@
     { id: 'all', label: 'All',
       empty: ['Your shelf is empty', 'Add what you’re reading, what you want to read, and what you’ve finished. Everything stays on this device.'] },
     { id: 'reading', label: 'Reading',
-      empty: ['Nothing on the go', 'Books you’re in the middle of live here. Log your current page and watch the progress bar fill up.'] },
+      empty: ['Nothing on the go', 'Books you’re in the middle of live here.'] },
     { id: 'toread', label: 'To read',
-      empty: ['Your “someday” pile is empty', 'Save books you want to read next — and who recommended them and why, so you remember when you get to them.'] },
+      empty: ['Your “someday” pile is empty', 'Save the books you want to read next, so they’re here when you’re ready for a new one.'] },
     { id: 'finished', label: 'Finished',
       empty: ['No finished books yet', 'Books you read to the last page. Give them a rating and jot down what stayed with you.'] },
-    { id: 'dnf', label: 'Didn’t finish',
-      empty: ['Nothing abandoned', 'Books you put down for good. No guilt — a quick note on why helps future you.'] },
   ];
-  const STATUSES = ['reading', 'toread', 'finished', 'dnf'];
+  const STATUSES = ['reading', 'toread', 'finished'];
   const LABEL = Object.fromEntries(SHELVES.map((s) => [s.id, s.label]));
   const TAB_KEY = 'bookshelf.tab';
   const MAX_COVER = 900;
@@ -775,9 +746,13 @@
   // ---------- Helpers ----------
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const today = () => {
-    const d = new Date();
+  const today = () => localDate(new Date());
+  const localDate = (d) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const fmtDate = (v) => {
+    const [y, m, d] = v.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   };
   const thisYear = () => String(new Date().getFullYear());
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
@@ -904,7 +879,8 @@
   }
 
   function normalize(b) {
-    const status = STATUSES.includes(b.status) ? b.status : 'toread';
+    // Books from the old "Didn't finish" shelf move to Finished.
+    const status = b.status === 'dnf' ? 'finished' : STATUSES.includes(b.status) ? b.status : 'toread';
     const rating = toInt(b.rating);
     const now = new Date().toISOString();
     const id = /^[A-Za-z0-9_.~:@+-]{1,200}$/.test(String(b.id || '')) && !/^\.\.?$/.test(b.id) ? String(b.id) : newId();
@@ -917,10 +893,8 @@
       rating: rating && rating <= 5 ? rating : null,
       cover: b.cover ? String(b.cover) : null,
       pages: toInt(b.pages),
-      current: toInt(b.current),
-      started: date(b.started),
-      finished: date(b.finished),
-      recommendedBy: String(b.recommendedBy || '').trim(),
+      added: date(b.added) || date(b.started) || (b.createdAt && !isNaN(new Date(b.createdAt)) ? localDate(new Date(b.createdAt)) : today()),
+      finished: date(b.finished), // set automatically when a book moves to Finished
       notes: String(b.notes || ''),
       createdAt: b.createdAt || now,
       updatedAt: b.updatedAt || now,
@@ -942,10 +916,10 @@
   async function loadAll() { if (!cloud) await setBooks(await store.allBooks()); }
 
   // ---------- Rendering ----------
-  const matches = (b, q) => !q || [b.title, b.author, b.notes, b.recommendedBy].some((f) => f && f.toLowerCase().includes(q));
+  const matches = (b, q) => !q || [b.title, b.author, b.notes].some((f) => f && f.toLowerCase().includes(q));
 
   function sortBooks(list) {
-    const key = (b) => (b.status === 'finished' || b.status === 'dnf') && b.finished ? b.finished + 'T99' : b.updatedAt;
+    const key = (b) => (b.status === 'finished' && b.finished ? b.finished : b.added) + b.updatedAt;
     return list.slice().sort((a, b) => (key(b) > key(a) ? 1 : key(b) < key(a) ? -1 : 0));
   }
 
@@ -965,20 +939,12 @@
   function metaHTML(b) {
     let html = '';
     if (tab === 'all') html += `<span class="tag">${esc(LABEL[b.status])}</span>`;
-    if (b.status === 'reading') {
-      const cur = b.current || 0;
-      if (b.pages) {
-        const pct = Math.min(100, Math.round((cur / b.pages) * 100));
-        html += `<span class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></span>
-          <span class="progress-label">p. ${fmt(cur)} / ${fmt(b.pages)} · ${pct}%</span>`;
-      } else if (cur) {
-        html += `<span class="progress-label">p. ${fmt(cur)}</span>`;
-      }
-    } else if (b.status === 'finished' || b.status === 'dnf') {
+    if (b.status === 'finished') {
       if (b.rating) html += starsHTML(b.rating);
       if (b.notes.trim()) html += `<span class="card-notes">${esc(b.notes.trim())}</span>`;
-    } else if (b.status === 'toread' && b.recommendedBy) {
-      html += `<span class="card-rec"><span class="mono">Recommended by</span><span>${esc(b.recommendedBy)}</span></span>`;
+    } else {
+      const facts = [b.pages ? `${fmt(b.pages)} pages` : '', `Added ${fmtDate(b.added)}`].filter(Boolean).join(' · ');
+      html += `<span class="card-facts">${esc(facts)}</span>`;
     }
     return html ? `<span class="card-meta">${html}</span>` : '';
   }
@@ -997,9 +963,7 @@
     const y = thisYear();
     const reading = books.filter((b) => b.status === 'reading');
     const doneThisYear = books.filter((b) => b.status === 'finished' && b.finished.startsWith(y));
-    const pages = doneThisYear.reduce((n, b) => n + (b.pages || 0), 0)
-      + books.filter((b) => b.status === 'dnf' && b.finished.startsWith(y)).reduce((n, b) => n + (b.current || 0), 0)
-      + reading.filter((b) => !b.started || b.started.startsWith(y)).reduce((n, b) => n + (b.current || 0), 0);
+    const pages = doneThisYear.reduce((n, b) => n + (b.pages || 0), 0);
     $('statReading').textContent = fmt(reading.length);
     $('statFinished').textContent = fmt(doneThisYear.length);
     $('statPages').textContent = fmt(pages);
@@ -1072,8 +1036,7 @@
   // ---------- Sheet (add / edit) ----------
   const sheet = $('sheet');
   const f = {
-    title: $('fTitle'), author: $('fAuthor'), pages: $('fPages'), current: $('fCurrent'),
-    started: $('fStarted'), finished: $('fFinished'), rec: $('fRec'), notes: $('fNotes'),
+    title: $('fTitle'), author: $('fAuthor'), pages: $('fPages'), added: $('fAdded'), notes: $('fNotes'),
   };
   let editing = null;        // book being edited, or null when adding
   let formStatus = 'reading';
@@ -1087,16 +1050,10 @@
     `<button type="button" data-star="${n}" aria-label="${n} star${n > 1 ? 's' : ''}" aria-pressed="false">★</button>`).join('')
     + '<span class="mono" id="ratingHint"></span>';
 
-  function setStatus(s, fromUser) {
-    const prev = formStatus;
+  function setStatus(s) {
     formStatus = s;
     for (const b of $('shelfPicker').children) b.setAttribute('aria-checked', String(b.dataset.status === s));
-    $('ratingField').hidden = !(s === 'finished' || s === 'dnf');
-    $('currentField').hidden = s !== 'reading';
-    if (fromUser && prev !== s) {
-      if (s === 'finished' && !f.finished.value) f.finished.value = today();
-      if (s === 'reading' && !f.started.value) f.started.value = today();
-    }
+    $('ratingField').hidden = s !== 'finished';
   }
   function setRating(n) {
     formRating = n;
@@ -1130,18 +1087,13 @@
     f.title.value = book?.title || '';
     f.author.value = book?.author || '';
     f.pages.value = book?.pages ?? '';
-    f.current.value = book?.current ?? '';
-    f.started.value = book?.started || '';
-    f.finished.value = book?.finished || '';
-    f.rec.value = book?.recommendedBy || '';
+    f.added.value = book?.added || today();
     f.notes.value = book?.notes || '';
     f.title.classList.remove('invalid');
     $('titleErr').hidden = true;
     $('coverInput').value = '';
     formStatus = book?.status || (tab === 'all' ? 'reading' : tab);
-    setStatus(formStatus, false);
-    if (!book && formStatus === 'reading') f.started.value = today();
-    if (!book && formStatus === 'finished') f.finished.value = today();
+    setStatus(formStatus);
     setRating(book?.rating || 0);
     $('deleteBtn').hidden = !book;
     $('coverControls').hidden = !canAddCovers();
@@ -1183,11 +1135,8 @@
     const isNew = !editing;
     const id = editing?.id || newId();
     const pages = toInt(f.pages.value);
-    let current = toInt(f.current.value);
-    if (pages != null && current != null && current > pages) current = pages;
-    let finished = f.finished.value;
-    if (formStatus === 'finished' && !finished && editing?.status !== 'finished') finished = today();
-    if (formStatus === 'finished' && pages != null && editing?.status === 'reading') current = pages;
+    // The finish date isn't on the form: it's stamped when a book moves to Finished.
+    const finished = formStatus !== 'finished' ? '' : editing?.status === 'finished' && editing.finished ? editing.finished : today();
 
     const book = {
       id,
@@ -1197,10 +1146,8 @@
       rating: formRating || null,
       cover: editing?.cover || null,
       pages,
-      current,
-      started: f.started.value,
+      added: f.added.value || editing?.added || today(),
       finished,
-      recommendedBy: f.rec.value.trim(),
       notes: f.notes.value,
       createdAt: editing?.createdAt || now,
       updatedAt: now,
@@ -1388,7 +1335,7 @@
 
   $('shelfPicker').addEventListener('click', (e) => {
     const b = e.target.closest('[data-status]');
-    if (b) setStatus(b.dataset.status, true);
+    if (b) setStatus(b.dataset.status);
   });
   $('rating').addEventListener('click', (e) => {
     const b = e.target.closest('[data-star]');
